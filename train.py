@@ -41,12 +41,12 @@ transforms_val = transforms.Compose([
 
 # trainModel_order = ['모낭홍반농포', '미세각질', '비듬', '탈모','모낭사이홍반']  # 학습 모델 순서
 
-trainModel_order = ['탈모','미세각질','모낭홍반농포','비듬','모낭사이홍반','피지과다']
+trainModel_order = ['탈모','피지과다','미세각질','모낭홍반농포','비듬','모낭사이홍반']
 label_mapping = { 0 : '양호', 1 : '경증', 2 : '중증', 3 : '위증'}
-train_data_list = [datasets.ImageFolder('../new_dataset/img_dataset/train_dataset/{}'.format(i),transform=transforms_train)
+train_data_list = [SkinDataset(i,'E:/train_dataset/{}'.format(i),phase='train',transform=transforms_train)
                    for i in trainModel_order ]
 
-val_data_set_list = [datasets.ImageFolder('../new_dataset/img_dataset/val_dataset/{}'.format(i),transform=transforms_val)
+val_data_set_list = [SkinDataset(i,'E:/val_dataset/{}'.format(i),phase='val',transform=transforms_val)
                    for i in trainModel_order ]
 
 dataloaders = {}
@@ -84,9 +84,9 @@ def create_folder(folder_path):
 def train(args,modelName):
     # https://didu-story.tistory.com/27 -> loss
     start_time = time.time()
-    batchsize = 4
+    batchsize = 6
     print('@@@ {} @@@ \t {}모델을 학습시킵니다.'.format(args['idx'],modelName))
-    model_name = 'efficientnet-b1'
+    model_name = 'efficientnet-b2'
     criterion = nn.CrossEntropyLoss()
     # save_model_path = './save_models/'
     save_model_path = './save_train_models/'
@@ -94,9 +94,9 @@ def train(args,modelName):
     print('batchsize{} : dataset num :{}'.format(batchsize,len(dataloaders[args['phase']][args['idx']])))
 
     pretrained = True
-
     if pretrained:
         model = EfficientNet.from_pretrained(model_name, num_classes=4)
+        print(model)
         model = model.to(args['device'])
         print('model-parameter- num : ', pytorch_count_params(model))
         # for k,i in model.named_parameters():
@@ -107,9 +107,28 @@ def train(args,modelName):
     #
     else:
         # model_name = 'vit_model_xss'
-        model_name = 'vit_model_s'
-        net = kgu_Network(feature_extract=True, device=args['device'],num_class=4)
-        model = net.get_model(model_name)
+        # model_name = 'vit_model_s'
+        # net = kgu_Network(feature_extract=True, device=args['device'],num_class=4)
+        # model = net.get_model(model_name)
+
+        from vit_pytorch import ViT
+        from vit_pytorch.deepvit import DeepViT
+        model = DeepViT(
+            image_size=256,
+            patch_size=16,
+            num_classes=4,
+            dim=1024,
+            depth=6,
+            heads=16,
+            mlp_dim=2048,
+            dropout=0.1,
+            emb_dropout=0.1
+        )
+        print(model)
+        model = model.to(args['device'])
+        # for i in model.named_parameters():
+        #     print(i)
+        # sys.exit()
         print('model-parameter- num : ',pytorch_count_params(model))
 
      # sys.exit()
@@ -118,7 +137,7 @@ def train(args,modelName):
     best_acc = 0.0
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.7)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.7)
 
 
     train_loss, train_acc, val_loss, val_acc = [], [], [], []
@@ -142,10 +161,11 @@ def train(args,modelName):
 
                 # get the inputs; data is a list of [inputs, labels]
                 img, labels = data #labels : dict
+
                 B, _, _, _ = img.size()
                 img = img.to(args['device'])
-                labels = labels.to(args['device'])
-
+                labels = labels.to(args['device']).view(-1)
+                # print(labels)
                 # zero the parameter gradients
                 optimizer.zero_grad()
                 with torch.set_grad_enabled(phase == 'train'):
@@ -275,7 +295,7 @@ def test(args,modelName):
     # CustomDataLoader = DataLoader(dataset= dataloaders[args['phase']][args['idx']],batch_size=batchsize,shuffle=True)
     print('batchsize{} : dataset num :{}'.format(batchsize, len(dataloaders[args['phase']][args['idx']])))
 
-    pretrained = True #False
+    pretrained = False #False
 
     if pretrained:
         model = EfficientNet.from_pretrained(model_name, num_classes=4)
@@ -385,12 +405,12 @@ def visual_image(img,pd_labels,gt_labels,val_label,label_infos,name):
     # plt.savefig('test_result/test_{}.png'.format(name))
 
 if __name__ =='__main__':
-    # args['mode'] = 'train'
-    args['mode'] = 'val'
+    args['mode'] = 'train'
+    # args['mode'] = 'val'
 
-    args['epochs'] = 100
-    # args['phase'] = 'train'
-    args['phase'] = 'val'
+    args['epochs'] = 200
+    args['phase'] = 'train'
+    # args['phase'] = 'val'
     args['device'] = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # args['device'] = 'cpu'
     if args['mode'] == 'train':
