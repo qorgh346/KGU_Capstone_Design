@@ -1,4 +1,4 @@
-졸업작품 캡스톤 프로젝트
+
 
 1. Download Anaconda
 	: https://www.anaconda.com/products/distribution
@@ -33,3 +33,4 @@ Start
 	2. Run React 
 	3. /test 
 	4. Check Result
+
